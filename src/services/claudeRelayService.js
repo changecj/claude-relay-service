@@ -954,15 +954,33 @@ class ClaudeRelayService {
       const accountData = await claudeAccountService.getAllAccounts()
       const account = accountData.find((acc) => acc.id === accountId)
 
-      if (!account || !account.proxy) {
+      // 优先使用账户级别的代理配置
+      let proxyConfig = account?.proxy
+
+      // 如果账户没有配置代理，使用全局代理配置
+      if (!proxyConfig && config.proxy?.enabled) {
+        const globalProxy = config.proxy
+        if (globalProxy.host && globalProxy.port) {
+          proxyConfig = {
+            type: globalProxy.type || 'http',
+            host: globalProxy.host,
+            port: globalProxy.port,
+            username: globalProxy.auth?.username || '',
+            password: globalProxy.auth?.password || ''
+          }
+          logger.debug('🌐 Using global proxy configuration')
+        }
+      }
+
+      if (!proxyConfig) {
         logger.debug('🌐 No proxy configured for Claude account')
         return null
       }
 
-      const proxyAgent = ProxyHelper.createProxyAgent(account.proxy)
+      const proxyAgent = ProxyHelper.createProxyAgent(proxyConfig)
       if (proxyAgent) {
         logger.info(
-          `🌐 Using proxy for Claude request: ${ProxyHelper.getProxyDescription(account.proxy)}`
+          `🌐 Using proxy for Claude request: ${ProxyHelper.getProxyDescription(proxyConfig)}`
         )
       }
       return proxyAgent

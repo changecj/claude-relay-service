@@ -139,8 +139,17 @@ class RedisClient {
       await client.hset('apikey:hash_map', hashedKey, keyId)
     }
 
-    await client.hset(key, keyData)
-    await client.expire(key, 86400 * 365) // 1年过期
+    // 将对象转换为键值对数组以兼容旧版 Redis
+    const fields = []
+    for (const [field, value] of Object.entries(keyData)) {
+      if (value !== null && value !== undefined) {
+        fields.push(field, String(value))
+      }
+    }
+    if (fields.length > 0) {
+      await client.hmset(key, fields)
+      await client.expire(key, 86400 * 365) // 1年过期
+    }
   }
 
   async getApiKey(keyId) {
@@ -1348,7 +1357,16 @@ class RedisClient {
   // 🏢 Claude 账户管理
   async setClaudeAccount(accountId, accountData) {
     const key = `claude:account:${accountId}`
-    await this.client.hset(key, accountData)
+    // 将对象转换为键值对数组以兼容旧版 Redis
+    const fields = []
+    for (const [field, value] of Object.entries(accountData)) {
+      if (value !== null && value !== undefined) {
+        fields.push(field, String(value))
+      }
+    }
+    if (fields.length > 0) {
+      await this.client.hmset(key, fields)
+    }
   }
 
   async getClaudeAccount(accountId) {
@@ -1376,7 +1394,16 @@ class RedisClient {
   // 🤖 Droid 账户相关操作
   async setDroidAccount(accountId, accountData) {
     const key = `droid:account:${accountId}`
-    await this.client.hset(key, accountData)
+    // 将对象转换为键值对数组以兼容旧版 Redis
+    const fields = []
+    for (const [field, value] of Object.entries(accountData)) {
+      if (value !== null && value !== undefined) {
+        fields.push(field, String(value))
+      }
+    }
+    if (fields.length > 0) {
+      await this.client.hmset(key, fields)
+    }
   }
 
   async getDroidAccount(accountId) {
@@ -1403,7 +1430,16 @@ class RedisClient {
 
   async setOpenAiAccount(accountId, accountData) {
     const key = `openai:account:${accountId}`
-    await this.client.hset(key, accountData)
+    // 将对象转换为键值对数组以兼容旧版 Redis
+    const fields = []
+    for (const [field, value] of Object.entries(accountData)) {
+      if (value !== null && value !== undefined) {
+        fields.push(field, String(value))
+      }
+    }
+    if (fields.length > 0) {
+      await this.client.hmset(key, fields)
+    }
   }
   async getOpenAiAccount(accountId) {
     const key = `openai:account:${accountId}`
@@ -1459,9 +1495,18 @@ class RedisClient {
   // 🗝️ API Key哈希索引管理
   async setApiKeyHash(hashedKey, keyData, ttl = 0) {
     const key = `apikey_hash:${hashedKey}`
-    await this.client.hset(key, keyData)
-    if (ttl > 0) {
-      await this.client.expire(key, ttl)
+    // 将对象转换为键值对数组以兼容旧版 Redis
+    const fields = []
+    for (const [field, value] of Object.entries(keyData)) {
+      if (value !== null && value !== undefined) {
+        fields.push(field, String(value))
+      }
+    }
+    if (fields.length > 0) {
+      await this.client.hmset(key, fields)
+      if (ttl > 0) {
+        await this.client.expire(key, ttl)
+      }
     }
   }
 
@@ -1490,8 +1535,20 @@ class RedisClient {
       }
     }
 
-    await this.client.hset(key, serializedData)
-    await this.client.expire(key, ttl)
+    // 将对象转换为键值对数组以兼容旧版 Redis
+    const fields = []
+    for (const [field, value] of Object.entries(serializedData)) {
+      if (value !== null && value !== undefined) {
+        fields.push(field, String(value))
+      }
+    }
+    if (fields.length > 0) {
+      // 使用 hmset 以确保兼容性（Redis 2.0+ 支持）
+      await this.client.hmset(key, fields)
+      if (ttl > 0) {
+        await this.client.expire(key, ttl)
+      }
+    }
   }
 
   async getOAuthSession(sessionId) {

@@ -1046,12 +1046,28 @@ class ClaudeConsoleAccountService {
 
   // 🌐 创建代理agent（使用统一的代理工具）
   _createProxyAgent(proxyConfig) {
-    const proxyAgent = ProxyHelper.createProxyAgent(proxyConfig)
+    // 如果账户没有配置代理，使用全局代理配置
+    let finalProxyConfig = proxyConfig
+    if (!finalProxyConfig && config.proxy?.enabled) {
+      const globalProxy = config.proxy
+      if (globalProxy.host && globalProxy.port) {
+        finalProxyConfig = {
+          type: globalProxy.type || 'http',
+          host: globalProxy.host,
+          port: globalProxy.port,
+          username: globalProxy.auth?.username || '',
+          password: globalProxy.auth?.password || ''
+        }
+        logger.debug('🌐 Using global proxy configuration for Claude Console')
+      }
+    }
+
+    const proxyAgent = ProxyHelper.createProxyAgent(finalProxyConfig)
     if (proxyAgent) {
       logger.info(
-        `🌐 Using proxy for Claude Console request: ${ProxyHelper.getProxyDescription(proxyConfig)}`
+        `🌐 Using proxy for Claude Console request: ${ProxyHelper.getProxyDescription(finalProxyConfig)}`
       )
-    } else if (proxyConfig) {
+    } else if (finalProxyConfig) {
       logger.debug('🌐 Failed to create proxy agent for Claude Console')
     } else {
       logger.debug('🌐 No proxy configured for Claude Console request')

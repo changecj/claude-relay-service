@@ -17,6 +17,30 @@ class ClaudeConsoleRelayService {
     this.defaultUserAgent = 'claude-cli/2.0.52 (external, cli)'
   }
 
+  // 获取代理配置（优先账户级别，否则使用全局配置）
+  _getProxyConfig(accountProxy) {
+    // 优先使用账户级别的代理配置
+    if (accountProxy) {
+      return accountProxy
+    }
+
+    // 如果账户没有配置代理，使用全局代理配置
+    if (config.proxy?.enabled) {
+      const globalProxy = config.proxy
+      if (globalProxy.host && globalProxy.port) {
+        return {
+          type: globalProxy.type || 'http',
+          host: globalProxy.host,
+          port: globalProxy.port,
+          username: globalProxy.auth?.username || '',
+          password: globalProxy.auth?.password || ''
+        }
+      }
+    }
+
+    return null
+  }
+
   // 🚀 转发请求到Claude Console API
   async relayRequest(
     requestBody,
@@ -164,7 +188,7 @@ class ClaudeConsoleRelayService {
       // 模型兼容性检查已经在调度器中完成，这里不需要再检查
 
       // 创建代理agent
-      const proxyAgent = claudeConsoleAccountService._createProxyAgent(account.proxy)
+      const proxyAgent = claudeConsoleAccountService._createProxyAgent(this._getProxyConfig(account.proxy))
 
       // 创建AbortController用于取消请求
       abortController = new AbortController()
@@ -628,7 +652,7 @@ class ClaudeConsoleRelayService {
       // 模型兼容性检查已经在调度器中完成，这里不需要再检查
 
       // 创建代理agent
-      const proxyAgent = claudeConsoleAccountService._createProxyAgent(account.proxy)
+      const proxyAgent = claudeConsoleAccountService._createProxyAgent(this._getProxyConfig(account.proxy))
 
       // 发送流式请求
       await this._makeClaudeConsoleStreamRequest(
@@ -1429,7 +1453,7 @@ class ClaudeConsoleRelayService {
         apiUrl,
         authorization: `Bearer ${account.apiKey}`,
         responseStream,
-        proxyAgent: claudeConsoleAccountService._createProxyAgent(account.proxy),
+        proxyAgent: claudeConsoleAccountService._createProxyAgent(this._getProxyConfig(account.proxy)),
         extraHeaders: account.userAgent ? { 'User-Agent': account.userAgent } : {}
       })
     } catch (error) {
