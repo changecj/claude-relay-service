@@ -81,33 +81,75 @@ class ServiceManager {
     console.log('🚀 启动 Claude Relay Service...')
 
     if (daemon) {
-      // 后台运行模式 - 使用nohup实现真正的后台运行
-      const { exec: execChild } = require('child_process')
-
-      const command = `nohup node "${APP_FILE}" > "${LOG_FILE}" 2> "${ERROR_LOG_FILE}" & echo $!`
-
-      execChild(command, (error, stdout) => {
-        if (error) {
-          console.error('❌ 后台启动失败:', error.message)
-          return
+      // 后台运行模式
+      const isWindows = process.platform === 'win32'
+      
+      if (isWindows) {
+        // Windows 平台：使用 detached spawn
+        const fs = require('fs')
+        // 确保日志目录存在
+        const logDir = path.dirname(LOG_FILE)
+        if (!fs.existsSync(logDir)) {
+          fs.mkdirSync(logDir, { recursive: true })
         }
+        
+        // 打开日志文件流
+        const logFd = fs.openSync(LOG_FILE, 'a')
+        const errorFd = fs.openSync(ERROR_LOG_FILE, 'a')
+        
+        const child = spawn('node', [APP_FILE], {
+          detached: true,
+          stdio: ['ignore', logFd, errorFd],
+          windowsHide: true
+        })
+        
+        // 关闭父进程的文件描述符
+        fs.closeSync(logFd)
+        fs.closeSync(errorFd)
+        
+        child.unref()
+        
+        // 等待一下确保进程启动
+        setTimeout(() => {
+          if (child.pid) {
+            this.writePid(child.pid)
+            console.log(`🔄 服务已在后台启动 (PID: ${child.pid})`)
+            console.log(`📝 日志文件: ${LOG_FILE}`)
+            console.log(`❌ 错误日志: ${ERROR_LOG_FILE}`)
+            console.log('✅ 终端现在可以安全关闭')
+          } else {
+            console.error('❌ 无法获取进程ID')
+          }
+          process.exit(0)
+        }, 1000)
+      } else {
+        // Unix/Linux 平台：使用 nohup
+        const { exec: execChild } = require('child_process')
+        const command = `nohup node "${APP_FILE}" > "${LOG_FILE}" 2> "${ERROR_LOG_FILE}" & echo $!`
 
-        const pid = parseInt(stdout.trim())
-        if (pid && !isNaN(pid)) {
-          this.writePid(pid)
-          console.log(`🔄 服务已在后台启动 (PID: ${pid})`)
-          console.log(`📝 日志文件: ${LOG_FILE}`)
-          console.log(`❌ 错误日志: ${ERROR_LOG_FILE}`)
-          console.log('✅ 终端现在可以安全关闭')
-        } else {
-          console.error('❌ 无法获取进程ID')
-        }
-      })
+        execChild(command, (error, stdout) => {
+          if (error) {
+            console.error('❌ 后台启动失败:', error.message)
+            return
+          }
 
-      // 给exec一点时间执行
-      setTimeout(() => {
-        process.exit(0)
-      }, 1000)
+          const pid = parseInt(stdout.trim())
+          if (pid && !isNaN(pid)) {
+            this.writePid(pid)
+            console.log(`🔄 服务已在后台启动 (PID: ${pid})`)
+            console.log(`📝 日志文件: ${LOG_FILE}`)
+            console.log(`❌ 错误日志: ${ERROR_LOG_FILE}`)
+            console.log('✅ 终端现在可以安全关闭')
+          } else {
+            console.error('❌ 无法获取进程ID')
+          }
+        })
+
+        // 给exec一点时间执行
+        setTimeout(() => {
+          process.exit(0)
+        }, 1000)
+      }
     } else {
       // 前台运行模式
       const child = spawn('node', [APP_FILE], {

@@ -1429,8 +1429,21 @@ class RedisClient {
   // 🔐 会话管理（用于管理员登录等）
   async setSession(sessionId, sessionData, ttl = 86400) {
     const key = `session:${sessionId}`
-    await this.client.hset(key, sessionData)
-    await this.client.expire(key, ttl)
+    // 将对象转换为键值对数组以兼容旧版 Redis
+    // 使用 hmset 方法（兼容性更好，虽然 Redis 4.0+ 已弃用，但仍可用）
+    const fields = []
+    for (const [field, value] of Object.entries(sessionData)) {
+      if (value !== null && value !== undefined) {
+        fields.push(field, String(value))
+      }
+    }
+    if (fields.length > 0) {
+      // 使用 hmset 以确保兼容性（Redis 2.0+ 支持）
+      await this.client.hmset(key, fields)
+      if (ttl > 0) {
+        await this.client.expire(key, ttl)
+      }
+    }
   }
 
   async getSession(sessionId) {

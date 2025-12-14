@@ -51,7 +51,17 @@ router.post('/auth/login', async (req, res) => {
           }
 
           // 重新存储到Redis，不设置过期时间
-          await redis.getClient().hset('session:admin_credentials', adminData)
+          // 将对象转换为键值对数组以兼容旧版 Redis
+          const fields = []
+          for (const [field, value] of Object.entries(adminData)) {
+            if (value !== null && value !== undefined) {
+              fields.push(field, String(value))
+            }
+          }
+          if (fields.length > 0) {
+            // 使用 hmset 以确保兼容性（Redis 2.0+ 支持）
+            await redis.getClient().hmset('session:admin_credentials', fields)
+          }
 
           logger.info('✅ Admin credentials reloaded from init.json')
         } catch (error) {
