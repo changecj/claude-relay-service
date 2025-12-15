@@ -33,6 +33,19 @@ class CcrAccountService {
     )
   }
 
+  // 辅助函数：将对象转换为键值对数组并执行 hmset（兼容旧版 Redis）
+  async _hsetObject(client, key, obj) {
+    const fields = []
+    for (const [field, value] of Object.entries(obj)) {
+      if (value !== null && value !== undefined) {
+        fields.push(field, String(value))
+      }
+    }
+    if (fields.length > 0) {
+      await client.hmset(key, fields)
+    }
+  }
+
   // 🏢 创建CCR账户
   async createAccount(options = {}) {
     const {
@@ -105,7 +118,7 @@ class CcrAccountService {
     )
     logger.debug(`[DEBUG] CCR Account data to save: ${JSON.stringify(accountData, null, 2)}`)
 
-    await client.hset(`${this.ACCOUNT_KEY_PREFIX}${accountId}`, accountData)
+    await this._hsetObject(client, `${this.ACCOUNT_KEY_PREFIX}${accountId}`, accountData)
 
     // 如果是共享账户，添加到共享账户集合
     if (accountType === 'shared') {
@@ -303,7 +316,7 @@ class CcrAccountService {
         updatedData.subscriptionExpiresAt = updates.subscriptionExpiresAt
       }
 
-      await client.hset(`${this.ACCOUNT_KEY_PREFIX}${accountId}`, updatedData)
+      await this._hsetObject(client, `${this.ACCOUNT_KEY_PREFIX}${accountId}`, updatedData)
 
       // 处理共享账户集合变更
       if (updates.accountType !== undefined) {
@@ -912,7 +925,7 @@ class CcrAccountService {
         'quotaStoppedAt'
       ]
 
-      await client.hset(accountKey, updates)
+      await this._hsetObject(client, accountKey, updates)
       await client.hdel(accountKey, ...fieldsToDelete)
 
       logger.success(`✅ Reset all error status for CCR account ${accountId}`)

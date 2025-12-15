@@ -28,6 +28,19 @@ let _encryptionKeyCache = null
 // 🔄 解密结果缓存，提高解密性能
 const decryptCache = new LRUCache(500)
 
+// 辅助函数：将对象转换为键值对数组并执行 hmset（兼容旧版 Redis）
+async function hsetObject(client, key, obj) {
+  const fields = []
+  for (const [field, value] of Object.entries(obj)) {
+    if (value !== null && value !== undefined) {
+      fields.push(field, String(value))
+    }
+  }
+  if (fields.length > 0) {
+    await client.hmset(key, fields)
+  }
+}
+
 // 生成加密密钥（使用与 claudeAccountService 相同的方法）
 function generateEncryptionKey() {
   if (!_encryptionKeyCache) {
@@ -590,7 +603,7 @@ async function createAccount(accountData) {
   }
 
   const client = redisClient.getClientSafe()
-  await client.hset(`${OPENAI_ACCOUNT_KEY_PREFIX}${accountId}`, account)
+  await hsetObject(client, `${OPENAI_ACCOUNT_KEY_PREFIX}${accountId}`, account)
 
   // 如果是共享账户，添加到共享账户集合
   if (account.accountType === 'shared') {
@@ -696,7 +709,7 @@ async function updateAccount(accountId, updates) {
     }
   }
 
-  await client.hset(`${OPENAI_ACCOUNT_KEY_PREFIX}${accountId}`, updates)
+  await hsetObject(client, `${OPENAI_ACCOUNT_KEY_PREFIX}${accountId}`, updates)
 
   logger.info(`Updated OpenAI account: ${accountId}`)
 
@@ -1255,7 +1268,7 @@ async function updateCodexUsageSnapshot(accountId, usageSnapshot) {
   updates.codexUsageUpdatedAt = new Date().toISOString()
 
   const client = redisClient.getClientSafe()
-  await client.hset(`${OPENAI_ACCOUNT_KEY_PREFIX}${accountId}`, updates)
+  await hsetObject(client, `${OPENAI_ACCOUNT_KEY_PREFIX}${accountId}`, updates)
 }
 
 module.exports = {

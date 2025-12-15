@@ -34,6 +34,19 @@ class OpenAIResponsesAccountService {
     )
   }
 
+  // 辅助函数：将对象转换为键值对数组并执行 hmset（兼容旧版 Redis）
+  async _hsetObject(client, key, obj) {
+    const fields = []
+    for (const [field, value] of Object.entries(obj)) {
+      if (value !== null && value !== undefined) {
+        fields.push(field, String(value))
+      }
+    }
+    if (fields.length > 0) {
+      await client.hmset(key, fields)
+    }
+  }
+
   // 创建账户
   async createAccount(options = {}) {
     const {
@@ -165,7 +178,7 @@ class OpenAIResponsesAccountService {
     // 更新 Redis
     const client = redis.getClientSafe()
     const key = `${this.ACCOUNT_KEY_PREFIX}${accountId}`
-    await client.hset(key, updates)
+    await this._hsetObject(client, key, updates)
 
     logger.info(`📝 Updated OpenAI-Responses account: ${account.name}`)
 
@@ -642,7 +655,7 @@ class OpenAIResponsesAccountService {
     const key = `${this.ACCOUNT_KEY_PREFIX}${accountId}`
 
     // 保存账户数据
-    await client.hset(key, accountData)
+    await this._hsetObject(client, key, accountData)
 
     // 添加到共享账户列表
     if (accountData.accountType === 'shared') {

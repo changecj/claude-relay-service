@@ -17,7 +17,7 @@ class ClaudeConsoleAccountService {
     this.SHARED_ACCOUNTS_KEY = 'shared_claude_console_accounts'
 
     // 🚀 性能优化：缓存派生的加密密钥，避免每次重复计算
-    // scryptSync 是 CPU 密集型操作，缓存可以减少 95%+ 的 CPU 密集型操作
+    // scryptSync 是 CPU 密集型操作，缓存可以减少 95%+ 的 CPU 占用
     this._encryptionKeyCache = null
 
     // 🔄 解密结果缓存，提高解密性能
@@ -34,6 +34,19 @@ class ClaudeConsoleAccountService {
       },
       10 * 60 * 1000
     )
+  }
+
+  // 辅助函数：将对象转换为键值对数组并执行 hmset（兼容旧版 Redis）
+  async _hsetObject(client, key, obj) {
+    const fields = []
+    for (const [field, value] of Object.entries(obj)) {
+      if (value !== null && value !== undefined) {
+        fields.push(field, String(value))
+      }
+    }
+    if (fields.length > 0) {
+      await client.hmset(key, fields)
+    }
   }
 
   _getBlockedHandlingMinutes() {
@@ -126,7 +139,7 @@ class ClaudeConsoleAccountService {
     )
     logger.debug(`[DEBUG] Account data to save: ${JSON.stringify(accountData, null, 2)}`)
 
-    await client.hset(`${this.ACCOUNT_KEY_PREFIX}${accountId}`, accountData)
+    await this._hsetObject(client, `${this.ACCOUNT_KEY_PREFIX}${accountId}`, accountData)
 
     // 如果是共享账户，添加到共享账户集合
     if (accountType === 'shared') {
@@ -418,7 +431,7 @@ class ClaudeConsoleAccountService {
       logger.debug(`[DEBUG] Final updatedData to save: ${JSON.stringify(updatedData, null, 2)}`)
       logger.debug(`[DEBUG] Updating Redis key: ${this.ACCOUNT_KEY_PREFIX}${accountId}`)
 
-      await client.hset(`${this.ACCOUNT_KEY_PREFIX}${accountId}`, updatedData)
+      await this._hsetObject(client, `${this.ACCOUNT_KEY_PREFIX}${accountId}`, updatedData)
 
       logger.success(`📝 Updated Claude Console account: ${accountId}`)
 
@@ -491,7 +504,7 @@ class ClaudeConsoleAccountService {
         updates.status = 'rate_limited'
       }
 
-      await client.hset(`${this.ACCOUNT_KEY_PREFIX}${accountId}`, updates)
+      await this._hsetObject(client, `${this.ACCOUNT_KEY_PREFIX}${accountId}`, updates)
 
       // 发送Webhook通知
       try {
@@ -540,7 +553,7 @@ class ClaudeConsoleAccountService {
       if (currentStatus === 'rate_limited') {
         if (quotaStoppedAt) {
           // 还有额度限制，改为quota_exceeded状态
-          await client.hset(accountKey, {
+          await this._hsetObject(client, accountKey, {
             status: 'quota_exceeded'
             // isActive保持false
           })
@@ -568,7 +581,7 @@ class ClaudeConsoleAccountService {
             await client.hdel(accountKey, 'rateLimitAutoStopped')
           }
 
-          await client.hset(accountKey, updateData)
+          await this._hsetObject(client, accountKey, updateData)
           logger.success(`✅ Rate limit removed and account re-enabled: ${accountId}`)
         }
       } else {
@@ -705,7 +718,7 @@ class ClaudeConsoleAccountService {
         unauthorizedCount: String((parseInt(account.unauthorizedCount || '0') || 0) + 1)
       }
 
-      await client.hset(`${this.ACCOUNT_KEY_PREFIX}${accountId}`, updates)
+      await this._hsetObject(client, `${this.ACCOUNT_KEY_PREFIX}${accountId}`, updates)
 
       // 发送Webhook通知
       try {
@@ -772,7 +785,7 @@ class ClaudeConsoleAccountService {
         blockedAutoStopped: 'true'
       }
 
-      await client.hset(`${this.ACCOUNT_KEY_PREFIX}${accountId}`, updates)
+      await this._hsetObject(client, `${this.ACCOUNT_KEY_PREFIX}${accountId}`, updates)
 
       // 发送Webhook通知，包含完整错误详情
       try {
@@ -819,7 +832,7 @@ class ClaudeConsoleAccountService {
       if (currentStatus === 'account_blocked') {
         if (quotaStoppedAt) {
           // 还有额度限制，改为quota_exceeded状态
-          await client.hset(accountKey, {
+          await this._hsetObject(client, accountKey, {
             status: 'quota_exceeded'
             // isActive保持false
           })
@@ -849,7 +862,7 @@ class ClaudeConsoleAccountService {
             await client.hdel(accountKey, 'blockedAutoStopped')
           }
 
-          await client.hset(accountKey, updateData)
+          await this._hsetObject(client, accountKey, updateData)
           logger.success(`✅ Blocked status removed and account re-enabled: ${accountId}`)
         }
       } else {
@@ -926,7 +939,7 @@ class ClaudeConsoleAccountService {
         errorMessage: '服务过载（529错误）'
       }
 
-      await client.hset(`${this.ACCOUNT_KEY_PREFIX}${accountId}`, updates)
+      await this._hsetObject(client, `${this.ACCOUNT_KEY_PREFIX}${accountId}`, updates)
 
       // 发送Webhook通知
       try {
@@ -1016,7 +1029,7 @@ class ClaudeConsoleAccountService {
         blockedAt: new Date().toISOString()
       }
 
-      await client.hset(`${this.ACCOUNT_KEY_PREFIX}${accountId}`, updates)
+      await this._hsetObject(client, `${this.ACCOUNT_KEY_PREFIX}${accountId}`, updates)
 
       logger.warn(`🚫 Claude Console account blocked: ${accountId} - ${reason}`)
 
@@ -1494,7 +1507,7 @@ class ClaudeConsoleAccountService {
       ]
 
       // 执行更新
-      await client.hset(accountKey, updates)
+      await this._hsetObject(client, accountKey, updates)
       await client.hdel(accountKey, ...fieldsToDelete)
 
       logger.success(`✅ Reset all error status for Claude Console account ${accountId}`)
@@ -1550,7 +1563,7 @@ class ClaudeConsoleAccountService {
         return { success: false, reason: 'Account not found' }
       }
 
-      await client.hset(accountKey, {
+      await this._hsetObject(client, accountKey, {
         countTokensUnavailable: 'true',
         countTokensUnavailableAt: new Date().toISOString()
       })

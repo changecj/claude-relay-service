@@ -4,6 +4,19 @@ const crypto = require('crypto')
 const config = require('../../config/config')
 const logger = require('../utils/logger')
 
+// 辅助函数：将对象转换为键值对数组并执行 hmset（兼容旧版 Redis）
+async function hsetObject(client, key, obj) {
+  const fields = []
+  for (const [field, value] of Object.entries(obj)) {
+    if (value !== null && value !== undefined) {
+      fields.push(field, String(value))
+    }
+  }
+  if (fields.length > 0) {
+    await client.hmset(key, fields)
+  }
+}
+
 // 加密相关常量
 const ALGORITHM = 'aes-256-cbc'
 const IV_LENGTH = 16
@@ -149,7 +162,7 @@ async function createAccount(accountData) {
   }
 
   const client = redisClient.getClientSafe()
-  await client.hset(`${AZURE_OPENAI_ACCOUNT_KEY_PREFIX}${accountId}`, account)
+  await hsetObject(client, `${AZURE_OPENAI_ACCOUNT_KEY_PREFIX}${accountId}`, account)
 
   // 如果是共享账户，添加到共享账户集合
   if (account.accountType === 'shared') {
@@ -239,7 +252,7 @@ async function updateAccount(accountId, updates) {
     }
   }
 
-  await client.hset(`${AZURE_OPENAI_ACCOUNT_KEY_PREFIX}${accountId}`, updates)
+  await hsetObject(client, `${AZURE_OPENAI_ACCOUNT_KEY_PREFIX}${accountId}`, updates)
 
   logger.info(`Updated Azure OpenAI account: ${accountId}`)
 
@@ -496,7 +509,7 @@ async function migrateApiKeysForAzureSupport() {
     const keyData = await client.hgetall(`api_key:${keyId}`)
     if (keyData && !keyData.azureOpenaiAccountId) {
       // 添加 Azure OpenAI 账户ID字段（初始为空）
-      await client.hset(`api_key:${keyId}`, 'azureOpenaiAccountId', '')
+      await client.hset(`api_key:${keyId}`, 'azureOpenaiAccountId', String(''))
       migratedCount++
     }
   }

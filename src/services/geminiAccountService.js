@@ -17,6 +17,19 @@ const {
 const tokenRefreshService = require('./tokenRefreshService')
 const LRUCache = require('../utils/lruCache')
 
+// 辅助函数：将对象转换为键值对数组并执行 hmset（兼容旧版 Redis）
+async function hsetObject(client, key, obj) {
+  const fields = []
+  for (const [field, value] of Object.entries(obj)) {
+    if (value !== null && value !== undefined) {
+      fields.push(field, String(value))
+    }
+  }
+  if (fields.length > 0) {
+    await client.hmset(key, fields)
+  }
+}
+
 // Gemini CLI OAuth 配置 - 这些是公开的 Gemini CLI 凭据
 const OAUTH_CLIENT_ID = '681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com'
 const OAUTH_CLIENT_SECRET = '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'
@@ -425,7 +438,7 @@ async function createAccount(accountData) {
 
   // 保存到 Redis
   const client = redisClient.getClientSafe()
-  await client.hset(`${GEMINI_ACCOUNT_KEY_PREFIX}${id}`, account)
+  await hsetObject(client, `${GEMINI_ACCOUNT_KEY_PREFIX}${id}`, account)
 
   // 如果是共享账户，添加到共享账户集合
   if (account.accountType === 'shared') {
@@ -594,7 +607,7 @@ async function updateAccount(accountId, updates) {
     }
   }
 
-  await client.hset(`${GEMINI_ACCOUNT_KEY_PREFIX}${accountId}`, updates)
+  await hsetObject(client, `${GEMINI_ACCOUNT_KEY_PREFIX}${accountId}`, updates)
 
   logger.info(`Updated Gemini account: ${accountId}`)
 
