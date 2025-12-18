@@ -148,7 +148,7 @@ class RedisClient {
     }
     if (fields.length > 0) {
       await client.hmset(key, fields)
-      await client.expire(key, 86400 * 365) // 1年过期
+    await client.expire(key, 86400 * 365) // 1年过期
     }
   }
 
@@ -1477,7 +1477,7 @@ class RedisClient {
       // 使用 hmset 以确保兼容性（Redis 2.0+ 支持）
       await this.client.hmset(key, fields)
       if (ttl > 0) {
-        await this.client.expire(key, ttl)
+    await this.client.expire(key, ttl)
       }
     }
   }
@@ -1504,8 +1504,8 @@ class RedisClient {
     }
     if (fields.length > 0) {
       await this.client.hmset(key, fields)
-      if (ttl > 0) {
-        await this.client.expire(key, ttl)
+    if (ttl > 0) {
+      await this.client.expire(key, ttl)
       }
     }
   }
@@ -1546,7 +1546,7 @@ class RedisClient {
       // 使用 hmset 以确保兼容性（Redis 2.0+ 支持）
       await this.client.hmset(key, fields)
       if (ttl > 0) {
-        await this.client.expire(key, ttl)
+    await this.client.expire(key, ttl)
       }
     }
   }

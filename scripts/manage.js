@@ -124,31 +124,31 @@ class ServiceManager {
         }, 1000)
       } else {
         // Unix/Linux 平台：使用 nohup
-        const { exec: execChild } = require('child_process')
-        const command = `nohup node "${APP_FILE}" > "${LOG_FILE}" 2> "${ERROR_LOG_FILE}" & echo $!`
+      const { exec: execChild } = require('child_process')
+      const command = `nohup node "${APP_FILE}" > "${LOG_FILE}" 2> "${ERROR_LOG_FILE}" & echo $!`
 
-        execChild(command, (error, stdout) => {
-          if (error) {
-            console.error('❌ 后台启动失败:', error.message)
-            return
-          }
+      execChild(command, (error, stdout) => {
+        if (error) {
+          console.error('❌ 后台启动失败:', error.message)
+          return
+        }
 
-          const pid = parseInt(stdout.trim())
-          if (pid && !isNaN(pid)) {
-            this.writePid(pid)
-            console.log(`🔄 服务已在后台启动 (PID: ${pid})`)
-            console.log(`📝 日志文件: ${LOG_FILE}`)
-            console.log(`❌ 错误日志: ${ERROR_LOG_FILE}`)
-            console.log('✅ 终端现在可以安全关闭')
-          } else {
-            console.error('❌ 无法获取进程ID')
-          }
-        })
+        const pid = parseInt(stdout.trim())
+        if (pid && !isNaN(pid)) {
+          this.writePid(pid)
+          console.log(`🔄 服务已在后台启动 (PID: ${pid})`)
+          console.log(`📝 日志文件: ${LOG_FILE}`)
+          console.log(`❌ 错误日志: ${ERROR_LOG_FILE}`)
+          console.log('✅ 终端现在可以安全关闭')
+        } else {
+          console.error('❌ 无法获取进程ID')
+        }
+      })
 
-        // 给exec一点时间执行
-        setTimeout(() => {
-          process.exit(0)
-        }, 1000)
+      // 给exec一点时间执行
+      setTimeout(() => {
+        process.exit(0)
+      }, 1000)
       }
     } else {
       // 前台运行模式
